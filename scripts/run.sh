@@ -3,6 +3,7 @@
 ## Run Script for Claude Code Container
 ## Creates and starts the container with shared folder mount
 ## Usage: ./run.sh [shared_folder_path]
+## If no shared_folder_path is provided, current directory is used
 ##
 
 set -e
@@ -19,15 +20,13 @@ fi
 
 # Parse arguments
 if [ "$#" -eq 0 ]; then
-    echo "Usage: $0 <shared_folder_path>"
+    # Use current working directory as default
+    SHARED_FOLDER="$(pwd)"
+    echo "No shared folder specified, using current directory: $SHARED_FOLDER"
     echo ""
-    echo "Example: $0 /pool/data_high/projects"
-    echo ""
-    echo "The shared folder will be mounted at /workspace in the container"
-    exit 1
+else
+    SHARED_FOLDER="$1"
 fi
-
-SHARED_FOLDER="$1"
 
 # Validate shared folder
 if [ ! -d "$SHARED_FOLDER" ]; then
