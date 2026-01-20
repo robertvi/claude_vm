@@ -4,14 +4,16 @@
       "autoApprove": true
     },
     "edit": {
-      "autoApprove": false
+      "autoApprove": true
     },
     "write": {
-      "autoApprove": false
+      "autoApprove": true
     }
   },
   "autoApprove": {
-    "bash": true
+    "bash": true,
+    "edit": true,
+    "write": true
   },
   "telemetry": {
     "enabled": false

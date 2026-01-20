@@ -90,6 +90,7 @@ podman run -d \
     --hostname claude-sandbox \
     -p 2222:22 \
     -v "$SHARED_FOLDER:/workspace:rw" \
+    --userns=keep-id:uid=1000,gid=1000 \
     ${ANTHROPIC_API_KEY:+-e ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY"} \
     --add-host=host.containers.internal:host-gateway \
     "$IMAGE_NAME:$IMAGE_TAG"

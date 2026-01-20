@@ -21,6 +21,7 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     gnupg \
     lsb-release \
+    sudo \
     # Build tools
     build-essential \
     # Python and pip
@@ -46,6 +47,9 @@ RUN npm install -g @anthropic-ai/claude-code
 RUN (userdel -r ubuntu 2>/dev/null || true) && \
     useradd -m -s /bin/bash -u 1000 claude && \
     usermod -aG sudo claude && \
+    # Configure passwordless sudo for claude user
+    echo "claude ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/claude && \
+    chmod 0440 /etc/sudoers.d/claude && \
     # Create .ssh directory for key-based authentication
     mkdir -p /home/claude/.ssh && \
     chmod 700 /home/claude/.ssh && \
