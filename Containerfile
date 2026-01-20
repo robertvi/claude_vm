@@ -62,6 +62,8 @@ RUN chmod 600 /home/claude/.ssh/authorized_keys && \
 
 # Configure SSH
 RUN mkdir /var/run/sshd && \
+    # Generate SSH host keys at build time
+    ssh-keygen -A && \
     # Allow password authentication for initial setup
     sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
     # Allow the claude user to login

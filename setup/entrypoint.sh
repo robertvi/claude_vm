@@ -36,7 +36,26 @@ sed -i "s|host.containers.internal|${HOST_IP}|g" /home/claude/.bashrc || true
 
 echo "Proxy configured: $HTTP_PROXY"
 
-# Generate host keys if they don't exist
+# Remap claude user to match host UID/GID if provided
+if [ -n "$HOST_UID" ] && [ -n "$HOST_GID" ]; then
+    CURRENT_UID=$(id -u claude)
+    CURRENT_GID=$(id -g claude)
+
+    if [ "$CURRENT_UID" != "$HOST_UID" ] || [ "$CURRENT_GID" != "$HOST_GID" ]; then
+        echo "Remapping claude user from $CURRENT_UID:$CURRENT_GID to $HOST_UID:$HOST_GID"
+
+        # Change the GID first
+        groupmod -g $HOST_GID claude 2>/dev/null || true
+
+        # Change the UID
+        usermod -u $HOST_UID claude 2>/dev/null || true
+
+        # Fix ownership of claude's home directory only
+        chown -R $HOST_UID:$HOST_GID /home/claude 2>/dev/null || true
+    fi
+fi
+
+# Generate host keys if they don't exist (should be done at build time, but just in case)
 if [ ! -f /etc/ssh/ssh_host_rsa_key ]; then
     echo "Generating SSH host keys..."
     ssh-keygen -A
