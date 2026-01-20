@@ -1,0 +1,22 @@
+{
+  "hooks": {
+    "bash": {
+      "autoApprove": true
+    },
+    "edit": {
+      "autoApprove": false
+    },
+    "write": {
+      "autoApprove": false
+    }
+  },
+  "autoApprove": {
+    "bash": true
+  },
+  "telemetry": {
+    "enabled": false
+  },
+  "ui": {
+    "compactMode": false
+  }
+}

@@ -1,0 +1,36 @@
+# Tinyproxy Filter File - Restrictive Mode
+# This file contains regular expressions for allowed domains
+# Each line is a POSIX extended regular expression
+# Lines starting with # are comments
+
+# Claude API
+^api\.anthropic\.com$
+
+# NPM package registries
+^registry\.npmjs\.org$
+^registry\.yarnpkg\.com$
+
+# Python package index
+^pypi\.org$
+^files\.pythonhosted\.org$
+
+# Git repositories
+^github\.com$
+^gitlab\.com$
+^.*\.github\.com$
+^.*\.githubusercontent\.com$
+
+# Common CDNs for packages
+^cdn\.jsdelivr\.net$
+^unpkg\.com$
+
+# Package manager mirrors (common ones)
+^deb\.debian\.org$
+^security\.debian\.org$
+^archive\.ubuntu\.com$
+^security\.ubuntu\.com$
+^ports\.ubuntu\.com$
+
+# DNS over HTTPS (if needed)
+^dns\.google$
+^cloudflare-dns\.com$

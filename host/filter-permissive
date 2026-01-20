@@ -1,0 +1,3 @@
+# Tinyproxy Filter File - Permissive Mode
+# Allow all domains - match everything
+.*
