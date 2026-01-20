@@ -60,15 +60,13 @@ if ! podman image exists "$IMAGE_NAME:$IMAGE_TAG"; then
     exit 1
 fi
 
-# Detect API key from environment or prompt
+# Note about authentication
 if [ -z "$ANTHROPIC_API_KEY" ]; then
-    echo "Warning: ANTHROPIC_API_KEY environment variable is not set"
-    echo "Claude Code will not work without an API key"
+    echo "Note: ANTHROPIC_API_KEY is not set"
+    echo "      You'll need to authenticate when you first run Claude Code inside the container"
+    echo "      (API key users: set ANTHROPIC_API_KEY before running this script)"
+    echo "      (Subscription users: authenticate interactively with 'claude' command)"
     echo ""
-    read -p "Enter your Anthropic API key (or press Enter to skip): " API_KEY_INPUT
-    if [ -n "$API_KEY_INPUT" ]; then
-        ANTHROPIC_API_KEY="$API_KEY_INPUT"
-    fi
 fi
 
 # Run the container

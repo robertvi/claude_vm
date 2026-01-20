@@ -42,7 +42,9 @@ RUN mkdir -p /etc/apt/keyrings && \
 RUN npm install -g @anthropic-ai/claude-code
 
 # Create non-root user 'claude'
-RUN useradd -m -s /bin/bash -u 1000 claude && \
+# Remove ubuntu user if it exists (conflicts with UID 1000), then create claude user
+RUN (userdel -r ubuntu 2>/dev/null || true) && \
+    useradd -m -s /bin/bash -u 1000 claude && \
     echo 'claude:claude' | chpasswd && \
     usermod -aG sudo claude
 
