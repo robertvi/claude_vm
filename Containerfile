@@ -1,6 +1,6 @@
 ##
 ## Containerfile for Claude Code Sandbox Environment
-## Based on Ubuntu with SSH server, Claude Code CLI, and development tools
+## Based on Ubuntu with Claude Code CLI and development tools
 ##
 
 FROM ubuntu:latest
@@ -10,8 +10,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    # SSH server
-    openssh-server \
     # Basic utilities
     curl \
     wget \
@@ -22,6 +20,7 @@ RUN apt-get update && apt-get install -y \
     gnupg \
     lsb-release \
     sudo \
+    iproute2 \
     # Build tools
     build-essential \
     # Python and pip
@@ -49,25 +48,7 @@ RUN (userdel -r ubuntu 2>/dev/null || true) && \
     usermod -aG sudo claude && \
     # Configure passwordless sudo for claude user
     echo "claude ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/claude && \
-    chmod 0440 /etc/sudoers.d/claude && \
-    # Create .ssh directory for key-based authentication
-    mkdir -p /home/claude/.ssh && \
-    chmod 700 /home/claude/.ssh && \
-    chown -R claude:claude /home/claude/.ssh
-
-# Copy SSH public key for passwordless authentication
-COPY authorized_keys.tmp /home/claude/.ssh/authorized_keys
-RUN chmod 600 /home/claude/.ssh/authorized_keys && \
-    chown claude:claude /home/claude/.ssh/authorized_keys
-
-# Configure SSH
-RUN mkdir /var/run/sshd && \
-    # Generate SSH host keys at build time
-    ssh-keygen -A && \
-    # Allow password authentication for initial setup
-    sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
-    # Allow the claude user to login
-    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config
+    chmod 0440 /etc/sudoers.d/claude
 
 # Create workspace directory
 RUN mkdir -p /workspace && \
@@ -79,9 +60,6 @@ RUN mkdir -p /home/claude/.config/claude-code && \
 
 # Copy Claude Code configuration
 COPY --chown=claude:claude config/claude-settings.json /home/claude/.config/claude-code/settings.json
-
-# Copy SSH configuration
-COPY config/sshd_config /etc/ssh/sshd_config
 
 # Copy entrypoint script
 COPY setup/entrypoint.sh /usr/local/bin/entrypoint.sh
@@ -102,9 +80,6 @@ RUN echo 'export HTTP_PROXY="http://host.containers.internal:8888"' >> /home/cla
     echo '    echo "To start Claude: cd /workspace/your-project && claude --resume"' >> /home/claude/.bashrc && \
     echo '    echo ""' >> /home/claude/.bashrc && \
     echo 'fi' >> /home/claude/.bashrc
-
-# Expose SSH port
-EXPOSE 22
 
 # Set working directory
 WORKDIR /home/claude

@@ -31,21 +31,21 @@ This installs tinyproxy with network restrictions that only allow Claude API and
 ### 4. Run Container
 
 ```bash
-export ANTHROPIC_API_KEY="your-api-key-here"
 ./scripts/run.sh /path/to/your/projects
 ```
 
 Replace `/path/to/your/projects` with the folder you want to share with the container.
 
-### 5. Connect to Container
+### 5. Access Container
 
 ```bash
-./scripts/connect.sh
+./scripts/exec.sh
 ```
 
-**Default credentials:**
-- Username: `claude`
-- Password: `claude`
+Or manually:
+```bash
+podman exec -it claude-sandbox /bin/bash
+```
 
 ### 6. Use Claude Code
 
@@ -53,8 +53,15 @@ Inside the container:
 
 ```bash
 cd /workspace/your-project
+
+# Authenticate on first use (subscription-based)
+claude auth login
+
+# Start Claude Code
 claude --resume
 ```
+
+**Edit Files**: You can edit files directly on your host with VSCode or any editor. Changes are immediately visible in the container.
 
 ## Daily Usage
 
@@ -63,13 +70,15 @@ claude --resume
 ./scripts/run.sh /path/to/your/projects
 ```
 
-**Connect:**
+**Access container:**
 ```bash
-./scripts/connect.sh
+./scripts/exec.sh
 ```
 
 **Stop container:**
 ```bash
+./scripts/stop-container.sh
+# or manually:
 podman stop claude-sandbox
 ```
 
@@ -85,10 +94,12 @@ This temporarily allows all network access, updates the OS, then restores restri
 
 ## Security Notes
 
-- Tinyproxy runs on the HOST (not in container) - Claude cannot disable it
-- Only whitelisted domains are accessible: Claude API, npm, PyPI, GitHub, Ubuntu repos
-- Claude has auto-approval for bash commands - only use with trusted projects
-- Shared folder has read-write access - Claude can modify files
+- **Rootless Podman**: Container runs without root privileges for better security
+- **Tinyproxy on HOST**: Runs outside container - Claude cannot disable it
+- **Network whitelist**: Only Claude API, npm, PyPI, GitHub, Ubuntu repos accessible
+- **Auto-approval**: Claude can execute bash commands without confirmation - only use with trusted projects
+- **Shared folder**: Claude can read/write files - only mount trusted directories
+- **No SSH**: Direct shell access via `podman exec` reduces attack surface
 
 ## Troubleshooting
 
@@ -117,10 +128,10 @@ sudo systemctl restart tinyproxy
 ```
 Host
 ├── Tinyproxy (port 8888) - Network filtering
-└── Podman Container
-    ├── SSH (port 2222 on host)
+└── Rootless Podman Container
     ├── Claude Code CLI
-    └── /workspace → Your shared folder
+    ├── Access via: podman exec
+    └── /workspace → Your shared folder (UID-mapped)
 ```
 
 For complete documentation, see [README.md](README.md).

@@ -1,17 +1,18 @@
 # Claude Code Sandbox Container
 
-A Podman container environment for running Claude Code CLI in a sandboxed environment with network restrictions and auto-approval for bash commands.
+A rootless Podman container environment for running Claude Code CLI in a sandboxed environment with network restrictions and auto-approval for bash commands.
 
 **Use at your own risk.** This is an experimental setup for running Claude Code in an isolated environment.
 
 ## Overview
 
-This project creates a Podman container running Ubuntu with:
+This project creates a rootless Podman container running Ubuntu with:
 - **Claude Code CLI** with auto-approval for bash commands
 - **Network restrictions** via tinyproxy on the host (only allows Claude API + essential package registries)
-- **SSH access** for connecting to the container
-- **Shared folder** for accessing projects from the host
+- **Direct file access** - edit files on host with VSCode, changes immediately visible in container
+- **Shared folder** with proper UID mapping for seamless file permissions
 - **Security isolation** - tinyproxy runs on the host, preventing tampering from within the container
+- **Rootless Podman** - runs without sudo privileges for better security
 
 ## Architecture
 
@@ -20,23 +21,27 @@ Host Machine
 ├── Tinyproxy (runs on host - port 8888)
 │   ├── Restrictive mode: Only whitelisted domains
 │   └── Permissive mode: All domains (for OS updates)
-├── Shared folder: /your/projects (mounted read-write)
-└── Podman container: claude-sandbox
-    ├── Ubuntu base + SSH server
+├── Shared folder: /your/projects (mounted with :Z for SELinux)
+└── Rootless Podman container: claude-sandbox
+    ├── Ubuntu base (no SSH server)
     ├── Claude Code CLI
     ├── Auto-approval enabled for bash commands
     ├── Network: Uses host's tinyproxy
-    └── Mount: /workspace → host's shared folder
+    ├── Mount: /workspace → host's shared folder
+    └── Access: podman exec (direct shell access)
 ```
 
-**Security Note**: Tinyproxy runs on the HOST, not in the container. This prevents Claude from disabling or reconfiguring the network filter, even if compromised.
+**Security Note**:
+- Tinyproxy runs on the HOST, not in the container. This prevents Claude from disabling or reconfiguring the network filter, even if compromised.
+- Rootless Podman with `--userns=keep-id` ensures your host UID matches the container UID for seamless file permissions.
+- No SSH server reduces attack surface and complexity.
 
 ## Prerequisites
 
-- **Linux host** with Podman installed
+- **Linux host** with Podman installed (rootless mode supported)
 - **Podman**: Container runtime (lighter than Docker)
 - **Tinyproxy**: HTTP proxy for network filtering
-- **Anthropic API key**: For Claude Code
+- **Claude Code subscription** or API key for authentication
 
 ### Install Podman
 
@@ -89,19 +94,18 @@ Start the container with a shared folder:
 ./scripts/run.sh /path/to/your/projects
 ```
 
-You'll be prompted for your Anthropic API key if not set in the environment.
+### 4. Access Container
 
-### 4. Connect via SSH
-
-Connect to the container:
+Connect to the container using `podman exec`:
 
 ```bash
-./scripts/connect.sh
+./scripts/exec.sh
 ```
 
-Default credentials:
-- Username: `claude`
-- Password: `claude`
+Or manually:
+```bash
+podman exec -it claude-sandbox /bin/bash
+```
 
 ### 5. Use Claude Code
 
@@ -111,12 +115,17 @@ Inside the container:
 # Navigate to your project in the shared workspace
 cd /workspace/your-project
 
+# Authenticate on first use (subscription-based)
+claude auth login
+
 # Start Claude Code (will resume previous session)
 claude --resume
 
 # Or start a new session
 claude
 ```
+
+**Edit Files**: You can edit files directly on your host using VSCode or any editor. Changes are immediately visible in the container thanks to the shared mount and UID mapping.
 
 ## Usage
 
@@ -129,11 +138,13 @@ claude
 
 **Connect to running container:**
 ```bash
-./scripts/connect.sh
+./scripts/exec.sh
 ```
 
 **Stop container:**
 ```bash
+./scripts/stop-container.sh
+# or manually:
 podman stop claude-sandbox
 ```
 
@@ -145,6 +156,11 @@ podman rm claude-sandbox
 **View container logs:**
 ```bash
 podman logs claude-sandbox
+```
+
+**List containers:**
+```bash
+./scripts/list-containers.sh
 ```
 
 ### Updating Container OS
@@ -222,19 +238,11 @@ The restrictive tinyproxy configuration (`host/tinyproxy.conf`) allows:
 
 To add more domains, edit `host/filter` and add regex patterns.
 
-### SSH Configuration
-
-Default SSH settings (`config/sshd_config`):
-- Port: 22 (mapped to 2222 on host)
-- Root login: Disabled
-- Password authentication: Enabled
-- Only `claude` user can login
-
-**For production**: Consider using SSH key-based authentication instead of passwords.
-
 ### Shared Folder
 
-The shared folder is mounted at `/workspace` inside the container with read-write access. The `claude` user has full access to files in this folder.
+The shared folder is mounted at `/workspace` inside the container with the `:Z` flag for SELinux compatibility. With `--userns=keep-id`, your host UID (typically 1000) maps directly to the container's `claude` user (also UID 1000), ensuring perfect file permission alignment.
+
+**File Permissions**: Files created in the container appear as owned by your host user, and vice versa. This means you can edit files on the host with any editor (VSCode, vim, etc.) and changes are immediately visible in the container.
 
 **Security warning**: Claude can read, modify, and delete any files in the shared folder. Only mount trusted directories.
 
@@ -249,15 +257,17 @@ The shared folder is mounted at `/workspace` inside the container with read-writ
    - Even if Claude is compromised, network filtering remains intact
 
 2. **Container Isolation**:
-   - Podman provides namespace isolation from host
-   - Non-root user inside container
+   - Rootless Podman provides namespace isolation without requiring root privileges
+   - Non-root user inside container (UID 1000)
    - Limited capabilities
+   - No SSH server reduces attack surface
 
 3. **Shared Folder Risk**:
    - Claude has read-write access to the shared folder
    - Can read, modify, or delete files
    - **Do not mount sensitive system directories**
    - Only mount trusted project directories
+   - UID mapping ensures files have correct ownership
 
 4. **Auto-Approval Risk**:
    - Claude can execute arbitrary bash commands without confirmation
@@ -265,12 +275,7 @@ The shared folder is mounted at `/workspace` inside the container with read-writ
    - Commands can affect container state and shared folder contents
    - **Only use with trusted workspaces and non-sensitive data**
 
-5. **SSH Security**:
-   - Default password is `claude` (change in production)
-   - Consider using SSH key-based authentication
-   - SSH is only exposed on localhost port 2222 by default
-
-6. **Proxy Security**:
+5. **Proxy Security**:
    - Tinyproxy only accepts connections from localhost and container networks
    - Do not expose tinyproxy to public networks
    - Regularly review allowed domain list
@@ -300,24 +305,24 @@ podman logs claude-sandbox
 
 **Common issues:**
 - Tinyproxy not running on host: `sudo systemctl status tinyproxy`
-- Port 2222 already in use: Stop other services or change port in `scripts/run.sh`
 - Shared folder doesn't exist: Ensure the path is correct
+- SELinux issues: The `:Z` flag should handle relabeling automatically
 
-### Cannot connect via SSH
+### Cannot access container
 
 **Verify container is running:**
 ```bash
 podman ps | grep claude-sandbox
 ```
 
-**Test SSH manually:**
+**Access manually:**
 ```bash
-ssh -p 2222 claude@localhost
+podman exec -it claude-sandbox /bin/bash
 ```
 
-**Check if port is listening:**
+**Check container logs:**
 ```bash
-ss -tuln | grep 2222
+podman logs claude-sandbox
 ```
 
 ### Claude cannot access the internet
@@ -330,8 +335,8 @@ netstat -tuln | grep 8888
 
 **Test proxy from inside container:**
 ```bash
-# SSH into container
-./scripts/connect.sh
+# Access container
+./scripts/exec.sh
 
 # Check environment variables
 echo $HTTP_PROXY
@@ -380,8 +385,7 @@ claude_vm/
 ├── README.md                  # This file
 ├── CLAUDE.md                  # Project instructions
 ├── config/
-│   ├── claude-settings.json   # Claude Code config (auto-approve)
-│   └── sshd_config            # SSH server config
+│   └── claude-settings.json   # Claude Code config (auto-approve)
 ├── host/
 │   ├── tinyproxy.conf         # Restrictive proxy config
 │   ├── tinyproxy-permissive.conf  # Permissive proxy config
@@ -392,48 +396,31 @@ claude_vm/
 │   ├── toggle-proxy.sh        # Switch proxy modes
 │   ├── build.sh               # Build container image
 │   ├── run.sh                 # Run container with shared folder
-│   ├── connect.sh             # SSH into container
+│   ├── exec.sh                # Access container shell
+│   ├── start.sh               # Start container and connect
+│   ├── stop-container.sh      # Stop container
+│   ├── list-containers.sh     # List containers
 │   └── update-container-os.sh # Update container OS packages
 └── setup/
     └── entrypoint.sh          # Container startup script
 ```
 
-## Environment Variables
+## Authentication
 
-**ANTHROPIC_API_KEY**: Your Claude API key (required for Claude Code)
+Claude Code supports two authentication methods:
 
-Set it before running the container:
-```bash
-export ANTHROPIC_API_KEY="your-key-here"
-./scripts/run.sh /path/to/projects
-```
+1. **Subscription-based** (recommended): Authenticate interactively inside the container:
+   ```bash
+   claude auth login
+   ```
 
-Or the script will prompt you for it.
+2. **API Key**: Set the environment variable before running the container:
+   ```bash
+   export ANTHROPIC_API_KEY="your-key-here"
+   ./scripts/run.sh /path/to/projects
+   ```
 
 ## Advanced Usage
-
-### Using SSH Keys Instead of Password
-
-1. Generate SSH key pair (if you don't have one):
-   ```bash
-   ssh-keygen -t ed25519 -f ~/.ssh/claude_sandbox
-   ```
-
-2. Add your public key to the container (after starting it):
-   ```bash
-   cat ~/.ssh/claude_sandbox.pub | ssh -p 2222 claude@localhost 'mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys'
-   ```
-
-3. Connect with key:
-   ```bash
-   ssh -p 2222 -i ~/.ssh/claude_sandbox claude@localhost
-   ```
-
-4. Disable password authentication by editing `config/sshd_config`:
-   ```
-   PasswordAuthentication no
-   ```
-   Then rebuild the container.
 
 ### Customizing the Whitelist
 
@@ -454,10 +441,10 @@ sudo systemctl restart tinyproxy
 
 ### Running Multiple Containers
 
-To run multiple isolated instances, modify `scripts/run.sh`:
-- Change `CONTAINER_NAME`
-- Change SSH port mapping (e.g., `-p 2223:22`)
-- Use different shared folders
+To run multiple isolated instances:
+1. Modify `CONTAINER_NAME` in `scripts/run.sh`
+2. Use different shared folders
+3. Each container can be accessed with `podman exec -it <container-name> /bin/bash`
 
 ### Persistent Data
 

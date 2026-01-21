@@ -28,34 +28,10 @@ if ! command -v podman &> /dev/null; then
     exit 1
 fi
 
-# Determine which SSH key to use (prefer ed25519)
-if [ -f "$HOME/.ssh/id_ed25519.pub" ]; then
-    SSH_PUB_KEY_PATH="$HOME/.ssh/id_ed25519.pub"
-    SSH_KEY_TYPE="ed25519"
-elif [ -f "$HOME/.ssh/id_rsa.pub" ]; then
-    SSH_PUB_KEY_PATH="$HOME/.ssh/id_rsa.pub"
-    SSH_KEY_TYPE="rsa"
-else
-    echo "No SSH key found. Generating ed25519 key..."
-    mkdir -p "$HOME/.ssh"
-    ssh-keygen -t ed25519 -f "$HOME/.ssh/id_ed25519" -N "" -C "claude-sandbox-key"
-    SSH_PUB_KEY_PATH="$HOME/.ssh/id_ed25519.pub"
-    SSH_KEY_TYPE="ed25519"
-fi
-
-echo "Using SSH public key: $SSH_PUB_KEY_PATH ($SSH_KEY_TYPE)"
-echo ""
-
-# Copy SSH public key to build context
-cp "$SSH_PUB_KEY_PATH" "$PROJECT_ROOT/authorized_keys.tmp"
-
 # Build the container
 echo "[1/2] Building container image..."
 cd "$PROJECT_ROOT"
 podman build -t "$IMAGE_NAME:$IMAGE_TAG" -f Containerfile .
-
-# Clean up temporary key file
-rm -f "$PROJECT_ROOT/authorized_keys.tmp"
 
 echo ""
 echo "[2/2] Verifying image..."
@@ -73,5 +49,5 @@ echo "=== Build complete! ==="
 echo ""
 echo "Next steps:"
 echo "  1. Run the container: ./scripts/run.sh /path/to/shared/folder"
-echo "  2. Connect via SSH: ./scripts/connect.sh"
+echo "  2. Connect to container: ./scripts/exec.sh"
 echo ""

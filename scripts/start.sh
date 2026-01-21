@@ -1,7 +1,7 @@
 #!/bin/bash
 ##
 ## Start Script for Claude Code Container
-## Runs the container and automatically connects via SSH
+## Runs the container and automatically connects via podman exec
 ## Usage: ./start.sh [shared_folder_path]
 ## If no shared_folder_path is provided, current directory is used
 ## If container is already running, reuses it instead of restarting
@@ -19,17 +19,17 @@ if ! command -v podman &> /dev/null; then
 fi
 
 # Check if container is already running
-if sudo podman ps --filter "name=$CONTAINER_NAME" --format "{{.Names}}" | grep -q "^$CONTAINER_NAME$"; then
+if podman ps --filter "name=$CONTAINER_NAME" --format "{{.Names}}" | grep -q "^$CONTAINER_NAME$"; then
     echo "=== Container Already Running ==="
     echo ""
     echo "Reusing existing container '$CONTAINER_NAME'"
 
     # Show current container info
-    sudo podman ps --filter "name=$CONTAINER_NAME" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+    podman ps --filter "name=$CONTAINER_NAME" --format "table {{.Names}}\t{{.Status}}"
     echo ""
 
     # Connect to the container
-    "$SCRIPT_DIR/connect.sh"
+    "$SCRIPT_DIR/exec.sh"
     exit 0
 fi
 
@@ -52,8 +52,8 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-echo "Waiting for SSH to be ready..."
-sleep 3
+echo "Waiting for container to be ready..."
+sleep 2
 
 # Connect to the container
-"$SCRIPT_DIR/connect.sh"
+"$SCRIPT_DIR/exec.sh"

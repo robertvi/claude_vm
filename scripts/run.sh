@@ -38,19 +38,6 @@ fi
 # Convert to absolute path
 SHARED_FOLDER="$(cd "$SHARED_FOLDER" && pwd)"
 
-# Determine which SSH key is being used (for display purposes)
-if [ -f "$HOME/.ssh/id_ed25519" ]; then
-    SSH_KEY_PATH="$HOME/.ssh/id_ed25519"
-    SSH_KEY_TYPE="ed25519"
-elif [ -f "$HOME/.ssh/id_rsa" ]; then
-    SSH_KEY_PATH="$HOME/.ssh/id_rsa"
-    SSH_KEY_TYPE="rsa"
-else
-    echo "ERROR: No SSH key found"
-    echo "Please run ./scripts/build.sh first to generate and embed an SSH key"
-    exit 1
-fi
-
 echo "=== Starting Claude Code Container ==="
 echo ""
 echo "Image: $IMAGE_NAME:$IMAGE_TAG"
@@ -59,40 +46,29 @@ echo "Shared folder: $SHARED_FOLDER"
 echo ""
 
 # Stop and remove existing container if it exists
-if sudo podman container exists "$CONTAINER_NAME"; then
+if podman container exists "$CONTAINER_NAME"; then
     echo "Removing existing container..."
-    sudo podman stop "$CONTAINER_NAME" 2>/dev/null || true
-    sudo podman rm "$CONTAINER_NAME" 2>/dev/null || true
+    podman stop "$CONTAINER_NAME" 2>/dev/null || true
+    podman rm "$CONTAINER_NAME" 2>/dev/null || true
 fi
 
 # Check if image exists
-if ! sudo podman image exists "$IMAGE_NAME:$IMAGE_TAG"; then
+if ! podman image exists "$IMAGE_NAME:$IMAGE_TAG"; then
     echo "ERROR: Image $IMAGE_NAME:$IMAGE_TAG does not exist"
     echo "Please build it first: ./scripts/build.sh"
     exit 1
-fi
-
-# Note about authentication
-if [ -z "$ANTHROPIC_API_KEY" ]; then
-    echo "Note: ANTHROPIC_API_KEY is not set"
-    echo "      You'll need to authenticate when you first run Claude Code inside the container"
-    echo "      (API key users: set ANTHROPIC_API_KEY before running this script)"
-    echo "      (Subscription users: authenticate interactively with 'claude' command)"
-    echo ""
 fi
 
 # Run the container
 echo "Starting container..."
 echo ""
 
-sudo podman run -d \
+podman run -d \
     --name "$CONTAINER_NAME" \
     --hostname claude-sandbox \
-    -p 2222:22 \
-    -v "$SHARED_FOLDER:/workspace:rw" \
-    -e "HOST_UID=$(id -u)" \
-    -e "HOST_GID=$(id -g)" \
-    ${ANTHROPIC_API_KEY:+-e ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY"} \
+    --userns=keep-id \
+    --user 1000:1000 \
+    -v "$SHARED_FOLDER:/workspace:Z" \
     --add-host=host.containers.internal:host-gateway \
     "$IMAGE_NAME:$IMAGE_TAG"
 
@@ -100,27 +76,27 @@ sudo podman run -d \
 sleep 2
 
 # Check if container is running
-if sudo podman ps | grep -q "$CONTAINER_NAME"; then
+if podman ps | grep -q "$CONTAINER_NAME"; then
     echo "✓ Container started successfully"
     echo ""
     echo "=== Container Information ==="
-    sudo podman ps --filter "name=$CONTAINER_NAME" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+    podman ps --filter "name=$CONTAINER_NAME" --format "table {{.Names}}\t{{.Status}}"
     echo ""
     echo "=== Connection Details ==="
-    echo "SSH: ssh -p 2222 -i $SSH_KEY_PATH claude@localhost"
-    echo "Authentication: Key-based ($SSH_KEY_TYPE)"
+    echo "Access container: ./scripts/exec.sh"
+    echo "  or: podman exec -it $CONTAINER_NAME /bin/bash"
     echo ""
     echo "Workspace in container: /workspace"
     echo "Workspace on host: $SHARED_FOLDER"
     echo ""
-    echo "To connect: ./scripts/connect.sh"
-    echo "To view logs: sudo podman logs $CONTAINER_NAME"
-    echo "To stop: sudo podman stop $CONTAINER_NAME"
+    echo "To connect: ./scripts/exec.sh"
+    echo "To view logs: podman logs $CONTAINER_NAME"
+    echo "To stop: podman stop $CONTAINER_NAME"
     echo ""
 else
     echo "✗ ERROR: Container failed to start"
     echo ""
     echo "Logs:"
-    sudo podman logs "$CONTAINER_NAME"
+    podman logs "$CONTAINER_NAME"
     exit 1
 fi

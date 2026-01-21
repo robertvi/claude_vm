@@ -19,20 +19,20 @@ echo "=== Stopping Claude Code Container ==="
 echo ""
 
 # Check if container exists
-if ! sudo podman container exists "$CONTAINER_NAME"; then
+if ! podman container exists "$CONTAINER_NAME"; then
     echo "Container '$CONTAINER_NAME' does not exist"
     exit 0
 fi
 
 # Check if container is running
-if ! sudo podman ps --filter "name=$CONTAINER_NAME" --format "{{.Names}}" | grep -q "^$CONTAINER_NAME$"; then
+if ! podman ps --filter "name=$CONTAINER_NAME" --format "{{.Names}}" | grep -q "^$CONTAINER_NAME$"; then
     echo "Container '$CONTAINER_NAME' is not running"
     exit 0
 fi
 
 # Stop the container
 echo "Stopping container '$CONTAINER_NAME'..."
-sudo podman stop "$CONTAINER_NAME"
+podman stop "$CONTAINER_NAME"
 
 echo ""
 echo "✓ Container stopped successfully"
