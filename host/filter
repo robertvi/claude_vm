@@ -5,10 +5,18 @@
 
 # Claude API and related services
 # Note: CONNECT requests include port, so we need to match with optional :port
+#see https://code.claude.com/docs/en/network-config#network-access-requirements
+
+^api\.anthropic\.com$
+^claude\.ai$
+^statsig\.anthropic\.com$
+^sentry\.io$
+
 ^api\.anthropic\.com(:[0-9]+)?$
 ^statsig\.anthropic\.com(:[0-9]+)?$
 ^platform\.claude\.com(:[0-9]+)?$
 ^console\.anthropic\.com(:[0-9]+)?$
+
 
 # NPM package registries
 ^registry\.npmjs\.org(:[0-9]+)?$
