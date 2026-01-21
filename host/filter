@@ -4,16 +4,14 @@
 # Lines starting with # are comments
 
 # Claude API and related services
-# Note: CONNECT requests include port, so we need to match with optional :port
+
 #see https://code.claude.com/docs/en/network-config#network-access-requirements
-
-^api\.anthropic\.com$
-^claude\.ai$
-^statsig\.anthropic\.com$
-^sentry\.io$
-
 ^api\.anthropic\.com(:[0-9]+)?$
+^claude\.ai(:[0-9]+)?$
 ^statsig\.anthropic\.com(:[0-9]+)?$
+^sentry\.io(:[0-9]+)?$
+
+#claude added these itself
 ^platform\.claude\.com(:[0-9]+)?$
 ^console\.anthropic\.com(:[0-9]+)?$
 
