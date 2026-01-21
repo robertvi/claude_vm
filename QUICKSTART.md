@@ -63,6 +63,8 @@ claude --resume
 
 **Edit Files**: You can edit files directly on your host with VSCode or any editor. Changes are immediately visible in the container.
 
+**Auto-Approval**: Bash commands run without confirmation. Press `Shift+Tab` inside Claude Code to toggle permissions back on if needed.
+
 ## Daily Usage
 
 **Start container:**

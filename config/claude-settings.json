@@ -1,4 +1,10 @@
 {
+  "allowedPrompts": [
+    {
+      "tool": "Bash",
+      "prompt": "*"
+    }
+  ],
   "hooks": {
     "bash": {
       "autoApprove": true

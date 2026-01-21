@@ -127,6 +127,8 @@ claude
 
 **Edit Files**: You can edit files directly on your host using VSCode or any editor. Changes are immediately visible in the container thanks to the shared mount and UID mapping.
 
+**Auto-Approval**: Bash commands execute without confirmation prompts. To re-enable confirmations during a session, press `Shift+Tab`.
+
 ## Usage
 
 ### Starting and Stopping the Container
@@ -196,24 +198,41 @@ sudo ./scripts/toggle-proxy.sh restrictive
 
 ## Configuration
 
-### Claude Code Settings
+### Claude Code Auto-Approval
 
-Auto-approval for bash commands is configured in `config/claude-settings.json`:
+Auto-approval for bash commands is enabled via a wrapper script that automatically adds the `--dangerously-skip-permissions` flag to all `claude` commands.
 
+**How it works:**
+- The `claude` command in the container is a wrapper script at `/usr/bin/claude`
+- It automatically runs Claude Code with `--dangerously-skip-permissions`
+- This bypasses all permission prompts for bash commands, file edits, and writes
+
+**Re-enabling confirmations:**
+- Inside a Claude Code session, press `Shift+Tab` to toggle permissions back on
+- You can also run the original command directly: `/usr/bin/claude-original` (without auto-approval)
+
+**Configuration file** (`config/claude-settings.json`):
+The settings file includes auto-approval configuration and telemetry disabled:
 ```json
 {
-  "hooks": {
-    "bash": {
-      "autoApprove": true
+  "allowedPrompts": [
+    {
+      "tool": "Bash",
+      "prompt": "*"
     }
-  },
+  ],
   "autoApprove": {
-    "bash": true
+    "bash": true,
+    "edit": true,
+    "write": true
+  },
+  "telemetry": {
+    "enabled": false
   }
 }
 ```
 
-This means Claude can execute bash commands without prompting for confirmation. Only use with trusted workspaces.
+**Security note:** Only use auto-approval with trusted workspaces, as Claude can execute arbitrary commands without confirmation.
 
 ### Network Whitelist
 

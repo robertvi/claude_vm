@@ -41,6 +41,15 @@ RUN mkdir -p /etc/apt/keyrings && \
 # Install Claude Code CLI globally
 RUN npm install -g @anthropic-ai/claude-code
 
+# Create wrapper script for Claude Code with auto-approval
+# This wrapper automatically adds --dangerously-skip-permissions flag
+# Users can still re-enable confirmations with Shift+Tab inside Claude Code
+# Or run /usr/bin/claude-original directly for the unwrapped version
+RUN mv /usr/bin/claude /usr/bin/claude-original && \
+    echo '#!/bin/bash' > /usr/bin/claude && \
+    echo '/usr/bin/claude-original --dangerously-skip-permissions "$@"' >> /usr/bin/claude && \
+    chmod +x /usr/bin/claude
+
 # Create non-root user 'claude'
 # Remove ubuntu user if it exists (conflicts with UID 1000), then create claude user
 RUN (userdel -r ubuntu 2>/dev/null || true) && \
@@ -78,6 +87,7 @@ RUN echo 'export HTTP_PROXY="http://host.containers.internal:8888"' >> /home/cla
     echo '    echo "=== Claude Code Sandbox ==="' >> /home/claude/.bashrc && \
     echo '    echo "Workspace: /workspace"' >> /home/claude/.bashrc && \
     echo '    echo "To start Claude: cd /workspace/your-project && claude --resume"' >> /home/claude/.bashrc && \
+    echo '    echo "Auto-approval enabled (--dangerously-skip-permissions)"' >> /home/claude/.bashrc && \
     echo '    echo ""' >> /home/claude/.bashrc && \
     echo 'fi' >> /home/claude/.bashrc
 
