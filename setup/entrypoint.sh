@@ -27,6 +27,11 @@ export https_proxy="http://${HOST_IP}:8888"
 export NO_PROXY="localhost,127.0.0.1"
 export no_proxy="localhost,127.0.0.1"
 
+# Make proxy variables readonly in this shell
+# Note: This only affects the current shell; child processes can still modify their environment.
+# The real enforcement is done via iptables firewall rules on the host.
+readonly HTTP_PROXY HTTPS_PROXY http_proxy https_proxy NO_PROXY no_proxy 2>/dev/null || true
+
 # Update proxy settings in claude user's bashrc (dynamic)
 sed -i "s|host.containers.internal|${HOST_IP}|g" /home/claude/.bashrc || true
 

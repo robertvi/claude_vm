@@ -68,15 +68,37 @@ if [ -n "$GITHUB_USER" ]; then
     ENV_ARGS="$ENV_ARGS -e GITHUB_USER=$GITHUB_USER"
 fi
 
+# Get the script directory for locating seccomp profile
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+SECCOMP_PROFILE="$PROJECT_ROOT/config/seccomp-network-restricted.json"
+
 # Run the container
 echo "Starting container..."
 echo ""
+
+# Security hardening options:
+# --cap-drop=NET_RAW: Prevents raw socket creation (no ping, no custom TCP/IP packets)
+# --cap-drop=NET_BIND_SERVICE: Prevents binding to privileged ports (<1024)
+# --security-opt seccomp=...: Restricts dangerous network syscalls
+
+SECCOMP_OPT=""
+if [ -f "$SECCOMP_PROFILE" ]; then
+    SECCOMP_OPT="--security-opt seccomp=$SECCOMP_PROFILE"
+    echo "Using seccomp profile: $SECCOMP_PROFILE"
+else
+    echo "WARNING: Seccomp profile not found at $SECCOMP_PROFILE"
+    echo "         Running without additional syscall restrictions"
+fi
 
 podman run -d \
     --name "$CONTAINER_NAME" \
     --hostname claude-sandbox \
     --userns=keep-id \
     --user 1000:1000 \
+    --cap-drop=NET_RAW \
+    --cap-drop=NET_BIND_SERVICE \
+    $SECCOMP_OPT \
     -v "$SHARED_FOLDER:/workspace:Z" \
     --add-host=host.containers.internal:host-gateway \
     $ENV_ARGS \

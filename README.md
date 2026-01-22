@@ -41,6 +41,7 @@ Host Machine
 - **Linux host** with Podman installed (rootless mode supported)
 - **Podman**: Container runtime (lighter than Docker)
 - **Tinyproxy**: HTTP proxy for network filtering
+- **iptables**: For kernel-level network enforcement (usually pre-installed)
 - **Claude Code subscription** or API key for authentication
 
 ### Install Podman
@@ -94,7 +95,26 @@ Start the container with a shared folder:
 ./scripts/run.sh /path/to/your/projects
 ```
 
-### 4. Access Container
+### 4. Set Up Firewall (Critical for Security)
+
+After starting the container at least once (so the network exists), set up the firewall:
+
+```bash
+sudo ./scripts/setup-firewall.sh
+```
+
+This creates iptables rules that:
+- Block ALL direct outbound traffic from containers
+- Only allow traffic to the host's tinyproxy (port 8888)
+- Block direct DNS queries (forces DNS through proxy)
+- Allow container-to-container and localhost communication
+
+**Verify firewall status:**
+```bash
+sudo ./scripts/setup-firewall.sh status
+```
+
+### 5. Access Container
 
 Connect to the container using `podman exec`:
 
@@ -107,7 +127,7 @@ Or manually:
 podman exec -it claude-sandbox /bin/bash
 ```
 
-### 5. Use Claude Code
+### 6. Use Claude Code
 
 Inside the container:
 
@@ -269,16 +289,18 @@ The shared folder is mounted at `/workspace` inside the container with the `:Z` 
 
 ### Defense in Depth
 
-1. **Network Isolation**:
-   - Tinyproxy runs on HOST, not in container
-   - Container cannot disable or reconfigure the proxy
-   - Whitelist-based approach: only specified domains are accessible
+1. **Network Isolation** (Multi-Layer):
+   - **Proxy-based filtering**: Tinyproxy runs on HOST with domain whitelist
+   - **Kernel-level enforcement**: iptables rules block ALL direct outbound traffic
+   - **DNS blocking**: Direct DNS queries are blocked at firewall level
+   - Container cannot bypass network restrictions even by unsetting proxy vars
    - Even if Claude is compromised, network filtering remains intact
 
 2. **Container Isolation**:
    - Rootless Podman provides namespace isolation without requiring root privileges
    - Non-root user inside container (UID 1000)
-   - Limited capabilities
+   - **Dropped capabilities**: NET_RAW (no raw sockets/ping), NET_BIND_SERVICE (no privileged ports)
+   - **Seccomp profile**: Blocks dangerous network syscalls (AF_PACKET, SOCK_RAW)
    - No SSH server reduces attack surface
 
 3. **Shared Folder Risk**:
@@ -303,7 +325,11 @@ The shared folder is mounted at `/workspace` inside the container with the `:Z` 
 
 This setup protects against:
 - ✅ Unintended network access by Claude (e.g., data exfiltration)
-- ✅ Claude disabling network restrictions (proxy runs on host)
+- ✅ Claude disabling network restrictions (proxy runs on host + iptables enforcement)
+- ✅ Bypassing proxy via direct sockets (blocked by iptables)
+- ✅ Bypassing proxy by unsetting environment variables (blocked by iptables)
+- ✅ Direct DNS queries to external servers (blocked by iptables)
+- ✅ Raw socket attacks like ping floods (NET_RAW capability dropped)
 - ✅ Claude affecting host system directly (container isolation)
 
 This setup does NOT protect against:
@@ -312,6 +338,38 @@ This setup does NOT protect against:
 - ❌ Vulnerabilities in Claude Code CLI itself
 
 **Recommendation**: Only use this container with projects and data you trust, and regularly review Claude's actions.
+
+### Verifying Security Hardening
+
+After setting up the firewall, test that bypasses are blocked from inside the container:
+
+```bash
+# Access the container
+./scripts/exec.sh
+
+# These should all FAIL after hardening:
+
+# 1. Direct socket connection (bypassing proxy)
+python3 -c "import socket; s=socket.socket(); s.connect(('example.com', 80))"
+# Expected: Connection refused or timeout
+
+# 2. Direct curl with proxy unset
+unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy
+curl -v --connect-timeout 5 https://example.com
+# Expected: Connection refused or timeout
+
+# 3. Direct DNS query
+nslookup example.com 8.8.8.8
+# Expected: Connection refused or timeout
+
+# 4. Raw socket / ping (if NET_RAW properly dropped)
+ping -c 1 example.com
+# Expected: Operation not permitted
+
+# These should SUCCEED (via proxy):
+curl -v https://api.anthropic.com
+curl -v https://github.com
+```
 
 ## Troubleshooting
 
@@ -378,6 +436,31 @@ sudo nano /etc/tinyproxy/filter
 sudo systemctl restart tinyproxy
 ```
 
+### Firewall rules not working
+
+**Check firewall status:**
+```bash
+sudo ./scripts/setup-firewall.sh status
+```
+
+**Restart firewall rules:**
+```bash
+sudo ./scripts/setup-firewall.sh restart
+```
+
+**Container network interface not detected:**
+If the script can't find the container network, check manually:
+```bash
+ip link show  # Look for cni-podman0, podman0, or similar
+podman network ls
+podman network inspect podman
+```
+
+Then set the interface manually if needed:
+```bash
+CONTAINER_IFACE=cni-podman0 sudo ./scripts/setup-firewall.sh
+```
+
 ### Container OS update fails
 
 **Ensure permissive mode is active:**
@@ -399,12 +482,13 @@ sudo ./scripts/toggle-proxy.sh restrictive
 ## File Structure
 
 ```
-claude_vm/
+claude_container/
 ├── Containerfile              # Container image definition
 ├── README.md                  # This file
 ├── CLAUDE.md                  # Project instructions
 ├── config/
-│   └── claude-settings.json   # Claude Code config (auto-approve)
+│   ├── claude-settings.json   # Claude Code config (auto-approve)
+│   └── seccomp-network-restricted.json  # Seccomp profile for syscall restrictions
 ├── host/
 │   ├── tinyproxy.conf         # Restrictive proxy config
 │   ├── tinyproxy-permissive.conf  # Permissive proxy config
@@ -412,6 +496,7 @@ claude_vm/
 │   └── filter-permissive      # Permissive domain filter
 ├── scripts/
 │   ├── host-setup.sh          # Install tinyproxy on host
+│   ├── setup-firewall.sh      # iptables rules for network enforcement
 │   ├── toggle-proxy.sh        # Switch proxy modes
 │   ├── build.sh               # Build container image
 │   ├── run.sh                 # Run container with shared folder

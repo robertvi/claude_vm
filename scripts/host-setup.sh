@@ -89,15 +89,41 @@ else
     echo "  Please check the service status manually"
 fi
 
+# Set up firewall rules for container network hardening
+echo ""
+echo "[6/6] Setting up firewall rules for container network..."
+echo ""
+echo "NOTE: Firewall rules require the container network to exist."
+echo "      If this is a fresh install, run this after starting a container once:"
+echo "      sudo $SCRIPT_DIR/setup-firewall.sh"
+echo ""
+
+# Try to set up firewall if the container network exists
+if "$SCRIPT_DIR/setup-firewall.sh" status &>/dev/null 2>&1; then
+    "$SCRIPT_DIR/setup-firewall.sh" start || {
+        echo "⚠ WARNING: Could not set up firewall rules automatically"
+        echo "  Run manually after starting a container: sudo $SCRIPT_DIR/setup-firewall.sh"
+    }
+else
+    echo "Container network not yet available - firewall setup deferred"
+    echo "Run after first container start: sudo $SCRIPT_DIR/setup-firewall.sh"
+fi
+
 echo ""
 echo "=== Host setup complete! ==="
 echo ""
 echo "Next steps:"
 echo "  1. Build the container: ./scripts/build.sh"
 echo "  2. Run the container: ./scripts/run.sh /path/to/shared/folder"
-echo "  3. Connect via SSH: ./scripts/connect.sh"
+echo "  3. Set up firewall (if not done): sudo ./scripts/setup-firewall.sh"
+echo "  4. Connect to container: ./scripts/exec.sh"
 echo ""
 echo "To toggle proxy modes (for updates):"
 echo "  sudo ./scripts/toggle-proxy.sh permissive"
 echo "  sudo ./scripts/toggle-proxy.sh restrictive"
+echo ""
+echo "To manage firewall:"
+echo "  sudo ./scripts/setup-firewall.sh status   # Check status"
+echo "  sudo ./scripts/setup-firewall.sh restart  # Restart rules"
+echo "  sudo ./scripts/setup-firewall.sh stop     # Disable (not recommended)"
 echo ""
