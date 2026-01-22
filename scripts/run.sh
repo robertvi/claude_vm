@@ -59,6 +59,15 @@ if ! podman image exists "$IMAGE_NAME:$IMAGE_TAG"; then
     exit 1
 fi
 
+# Build environment variable arguments for backup credentials (if set)
+ENV_ARGS=""
+if [ -n "$GITHUB_PAT" ]; then
+    ENV_ARGS="$ENV_ARGS -e GITHUB_PAT=$GITHUB_PAT"
+fi
+if [ -n "$GITHUB_USER" ]; then
+    ENV_ARGS="$ENV_ARGS -e GITHUB_USER=$GITHUB_USER"
+fi
+
 # Run the container
 echo "Starting container..."
 echo ""
@@ -70,6 +79,7 @@ podman run -d \
     --user 1000:1000 \
     -v "$SHARED_FOLDER:/workspace:Z" \
     --add-host=host.containers.internal:host-gateway \
+    $ENV_ARGS \
     "$IMAGE_NAME:$IMAGE_TAG"
 
 # Wait for container to start

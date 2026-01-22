@@ -74,6 +74,10 @@ COPY --chown=claude:claude config/claude-settings.json /home/claude/.config/clau
 COPY setup/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
+# Copy backup script
+COPY setup/claude-backup.sh /usr/local/bin/claude-backup.sh
+RUN chmod +x /usr/local/bin/claude-backup.sh
+
 # Set up shell environment for claude user
 RUN echo 'export HTTP_PROXY="http://host.containers.internal:8888"' >> /home/claude/.bashrc && \
     echo 'export HTTPS_PROXY="http://host.containers.internal:8888"' >> /home/claude/.bashrc && \
