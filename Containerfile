@@ -38,19 +38,7 @@ RUN mkdir -p /etc/apt/keyrings && \
     apt-get install -y nodejs && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Claude Code CLI globally
-RUN npm install -g @anthropic-ai/claude-code
-
-# Create wrapper script for Claude Code with auto-approval
-# This wrapper automatically adds --dangerously-skip-permissions flag
-# Users can still re-enable confirmations with Shift+Tab inside Claude Code
-# Or run /usr/bin/claude-original directly for the unwrapped version
-RUN mv /usr/bin/claude /usr/bin/claude-original && \
-    echo '#!/bin/bash' > /usr/bin/claude && \
-    echo '/usr/bin/claude-original --dangerously-skip-permissions "$@"' >> /usr/bin/claude && \
-    chmod +x /usr/bin/claude
-
-# Create non-root user 'claude'
+# Create non-root user 'claude' before installing Claude Code
 # Remove ubuntu user if it exists (conflicts with UID 1000), then create claude user
 RUN (userdel -r ubuntu 2>/dev/null || true) && \
     useradd -m -s /bin/bash -u 1000 claude && \
@@ -58,6 +46,27 @@ RUN (userdel -r ubuntu 2>/dev/null || true) && \
     # Configure passwordless sudo for claude user
     echo "claude ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/claude && \
     chmod 0440 /etc/sudoers.d/claude
+
+# Create ~/bin directory for wrapper script (separate from native binary location)
+RUN mkdir -p /home/claude/bin && chown claude:claude /home/claude/bin
+
+# Switch to claude user for native Claude Code installation
+USER claude
+WORKDIR /home/claude
+
+# Install Claude Code using native installer (installs to ~/.local/bin/claude)
+# This allows auto-updates without sudo since the binary is user-owned
+RUN curl -fsSL https://claude.ai/install.sh | bash -s latest
+
+# Create wrapper script at ~/bin/claude (separate from native binary)
+# This allows auto-updates to work on ~/.local/bin/claude without breaking wrapper
+# PATH order ensures wrapper is called: $HOME/bin:$HOME/.local/bin:$PATH
+RUN echo '#!/bin/bash' > /home/claude/bin/claude && \
+    echo '/home/claude/.local/bin/claude --dangerously-skip-permissions "$@"' >> /home/claude/bin/claude && \
+    chmod +x /home/claude/bin/claude
+
+# Switch back to root for remaining setup
+USER root
 
 # Create workspace directory
 RUN mkdir -p /workspace && \
@@ -79,7 +88,11 @@ COPY setup/claude-backup.sh /usr/local/bin/claude-backup.sh
 RUN chmod +x /usr/local/bin/claude-backup.sh
 
 # Set up shell environment for claude user
-RUN echo 'export HTTP_PROXY="http://host.containers.internal:8888"' >> /home/claude/.bashrc && \
+RUN echo '# PATH: wrapper first, then native binary' >> /home/claude/.bashrc && \
+    echo 'export PATH="$HOME/bin:$HOME/.local/bin:$PATH"' >> /home/claude/.bashrc && \
+    echo '' >> /home/claude/.bashrc && \
+    echo '# Proxy configuration' >> /home/claude/.bashrc && \
+    echo 'export HTTP_PROXY="http://host.containers.internal:8888"' >> /home/claude/.bashrc && \
     echo 'export HTTPS_PROXY="http://host.containers.internal:8888"' >> /home/claude/.bashrc && \
     echo 'export http_proxy="http://host.containers.internal:8888"' >> /home/claude/.bashrc && \
     echo 'export https_proxy="http://host.containers.internal:8888"' >> /home/claude/.bashrc && \

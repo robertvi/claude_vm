@@ -43,15 +43,15 @@ Host Machine
 │   ├── Restrictive: host/tinyproxy.conf + host/filter (whitelist)
 │   └── Permissive: host/tinyproxy-permissive.conf (allows all)
 └── Rootless Podman Container (claude-sandbox)
-    ├── /usr/bin/claude → wrapper adding --dangerously-skip-permissions
-    ├── /usr/bin/claude-original → actual claude binary
+    ├── ~/bin/claude → wrapper adding --dangerously-skip-permissions
+    ├── ~/.local/bin/claude → native binary (auto-updates here)
     ├── UID 1000 mapping via --userns=keep-id
     └── /workspace → host shared folder (:Z for SELinux)
 ```
 
 ## Key Implementation Details
 
-- **Auto-approval wrapper**: `Containerfile` moves original claude to `claude-original` and installs a wrapper script that adds `--dangerously-skip-permissions` flag
+- **Auto-approval wrapper**: `Containerfile` installs a wrapper at `~/bin/claude` that calls the native binary at `~/.local/bin/claude` with `--dangerously-skip-permissions` flag. The wrapper is separate from the binary so auto-updates don't overwrite it.
 - **Passwordless sudo**: The `claude` user has full passwordless sudo access in the container
 - **Network whitelist**: Edit `host/filter` with POSIX regex patterns, then `sudo systemctl restart tinyproxy`
 - **UID mapping**: Container user `claude` (UID 1000) maps to host UID 1000 for seamless file permissions
@@ -60,12 +60,12 @@ Host Machine
 ## Known Limitations
 
 - **UID 1000 assumption**: Both host user and container user must be UID 1000 for file permissions to work correctly
-- **Claude Code auto-update fails**: The `claude update` command does not work inside the container; rebuild the image to update Claude Code
 
 ## Network Whitelist (host/filter)
 
 Allowed domains include:
 - Claude API: api.anthropic.com, claude.ai, statsig.anthropic.com, sentry.io
+- Claude Code updates: storage.googleapis.com (native binary distribution)
 - GitHub: github.com, *.github.com, *.githubusercontent.com
 - Package registries: registry.npmjs.org, pypi.org, archive.ubuntu.com
 
