@@ -323,7 +323,7 @@ Contributions welcome! Please ensure:
 
 ## License
 
-[Add your license here]
+MIT License - See [LICENSE](LICENSE) file for details.
 
 ## Related Resources
 
