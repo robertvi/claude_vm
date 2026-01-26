@@ -1,24 +1,32 @@
 #!/bin/bash
 set -e
 
-LOG_FILE="/tmp/claude-sandbox-build.log"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
-# Get current user's UID and GID
+# Check for --test flag
+if [[ "$1" == "--test" ]]; then
+    IMAGE_NAME="claude-sandbox-test"
+    CONTAINERFILE="Containerfile.test"
+    LOG_FILE="/tmp/claude-sandbox-test-build.log"
+    echo "Building TEST image..."
+else
+    IMAGE_NAME="claude-sandbox"
+    CONTAINERFILE="Containerfile"
+    LOG_FILE="/tmp/claude-sandbox-build.log"
+fi
+
 USER_UID=$(id -u)
 USER_GID=$(id -g)
 
-# Clear the log file
 > "$LOG_FILE"
 
-# Build the container image with user's UID/GID
 echo "Building container image for UID:GID ${USER_UID}:${USER_GID}... (logging to ${LOG_FILE})"
 podman build \
   --no-cache \
   --build-arg USER_UID="${USER_UID}" \
   --build-arg USER_GID="${USER_GID}" \
-  -t claude-sandbox \
-  -f Containerfile . 2>&1 | tee "$LOG_FILE"
+  -t "$IMAGE_NAME" \
+  -f "$PROJECT_DIR/$CONTAINERFILE" "$PROJECT_DIR" 2>&1 | tee "$LOG_FILE"
 
-echo "Build complete. Image tagged as: claude-sandbox"
-echo "Built with UID:GID ${USER_UID}:${USER_GID}"
-echo "Full build log saved to: ${LOG_FILE}"
+echo "Build complete. Image tagged as: ${IMAGE_NAME}"
