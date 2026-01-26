@@ -60,13 +60,14 @@ image_exists() {
     podman image exists "$name" 2>/dev/null
 }
 
-# Parse common arguments: --test, --name <value>, --force
-# Sets global variables: TEST_MODE, INSTANCE_NAME, FORCE_MODE, REMAINING_ARGS
+# Parse common arguments: --test, --name <value>, --force, --nosudo
+# Sets global variables: TEST_MODE, INSTANCE_NAME, FORCE_MODE, NOSUDO_MODE, REMAINING_ARGS
 # Usage: parse_common_args "$@"
 parse_common_args() {
     TEST_MODE=false
     INSTANCE_NAME=""
     FORCE_MODE=false
+    NOSUDO_MODE=false
     REMAINING_ARGS=()
 
     while [[ $# -gt 0 ]]; do
@@ -84,6 +85,10 @@ parse_common_args() {
                 ;;
             --force)
                 FORCE_MODE=true
+                shift
+                ;;
+            --nosudo)
+                NOSUDO_MODE=true
                 shift
                 ;;
             *)

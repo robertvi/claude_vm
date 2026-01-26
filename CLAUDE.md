@@ -146,7 +146,8 @@ All scripts support these flags (in any order):
 
 **build.sh** - Build container image
 ```bash
-./scripts/build.sh [--test]
+./scripts/build.sh [--test] [--nosudo]
+# --nosudo: Disable sudo access for claude user (more restrictive)
 ```
 
 **run.sh** - Create and start a new container
