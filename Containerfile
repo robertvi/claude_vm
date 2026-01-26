@@ -3,7 +3,7 @@ FROM ubuntu:24.04
 # Build arguments for user UID/GID and sudo configuration
 ARG USER_UID=1000
 ARG USER_GID=1000
-ARG NOSUDO=false
+ARG NO_SUDO=false
 
 # Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -27,9 +27,9 @@ RUN (userdel -r ubuntu 2>/dev/null || true) && \
     groupadd -g ${USER_GID} claude && \
     useradd -u ${USER_UID} -g ${USER_GID} -m -s /bin/bash claude
 
-# Configure sudo for claude user (conditional based on NOSUDO build arg)
-ARG NOSUDO
-RUN if [ "$NOSUDO" = "true" ]; then \
+# Configure sudo for claude user (conditional based on NO_SUDO build arg)
+ARG NO_SUDO
+RUN if [ "$NO_SUDO" = "true" ]; then \
         echo "Sudo disabled for claude user"; \
     else \
         echo 'claude ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/claude && \
